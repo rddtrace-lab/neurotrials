@@ -74,3 +74,12 @@ padding:6px 10px;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.12);max-width:2
 .hb .bar.s1{background:var(--s1)}.hb .bar.s2{background:var(--s2)}
 .hb .hv{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 @media (max-width:520px){.hrow{grid-template-columns:minmax(96px,38%) 1fr}.hl{font-size:12px}}
+:root{--s3:#1baf7a}@media (prefers-color-scheme:dark){:root{--s3:#199e70}}
+.sw.s3{background:var(--s3)}.chart .mark.s3{fill:var(--s3)}
+.chart .ln{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}.chart .ln.s1{stroke:var(--s1)}.chart .ln.s2{stroke:var(--s2)}.chart .ln.s3{stroke:var(--s3)}
+.chart .dot{stroke:var(--panel);stroke-width:2}.chart .dot.s1{fill:var(--s1)}.chart .dot.s2{fill:var(--s2)}.chart .dot.s3{fill:var(--s3)}
+.stack{display:flex;gap:2px;height:14px}.stack .seg{display:block;height:14px}.stack .seg:first-child{border-radius:0}.stack .seg:last-child{border-radius:0 4px 4px 0}
+.seg.s1{background:var(--s1)}.seg.s2{background:var(--s2)}.seg.s0{background:var(--s0)}.seg.s3{background:var(--s3)}
+table.heat{font-size:12px}table.heat td,table.heat th{padding:4px 6px;text-align:center;border-bottom:1px solid var(--line)}
+table.heat th.rl{text-align:right;font-weight:500;white-space:nowrap}td.hm{font-variant-numeric:tabular-nums;outline:none}td.hm:focus{box-shadow:inset 0 0 0 2px var(--ink)}
+h2.sec{font-size:22px;margin:36px 0 2px}.kf ul{margin:6px 0 0;padding-left:20px}.kf li{margin:4px 0}
