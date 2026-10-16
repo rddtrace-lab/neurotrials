@@ -36,3 +36,19 @@
   fetch('data/trials.json').then(function(r){if(!r.ok) throw new Error(r.status);return r.json()}).then(function(j){rows=j;render()})
     .catch(function(){cnt.innerHTML='Could not load the trial data. <a href="data/trials.csv">Download the CSV</a> instead.'});
 })();
+// Dashboard: hover/focus tooltips on chart hit areas (data-tip = "title|line|line…"), built with textContent
+(function(){
+  var hits=document.querySelectorAll('.chart .hit'); if(!hits.length) return;
+  var tip=document.createElement('div'); tip.className='viz-tip'; tip.hidden=true; document.body.appendChild(tip);
+  function show(el,x,y){var parts=el.getAttribute('data-tip').split('|');tip.textContent='';
+    var b=document.createElement('b');b.textContent=parts[0];tip.appendChild(b);
+    parts.slice(1).forEach(function(p){var s=document.createElement('span');s.textContent=p;tip.appendChild(s)});
+    tip.hidden=false;var w=tip.offsetWidth,h=tip.offsetHeight;
+    tip.style.left=Math.min(x+14,window.innerWidth-w-8)+'px';tip.style.top=Math.max(8,y-h-10)+'px'}
+  hits.forEach(function(el){
+    el.addEventListener('pointermove',function(ev){show(el,ev.clientX,ev.clientY)});
+    el.addEventListener('pointerleave',function(){tip.hidden=true});
+    el.addEventListener('focus',function(){var r=el.getBoundingClientRect();show(el,r.left+r.width/2,r.top)});
+    el.addEventListener('blur',function(){tip.hidden=true});
+  });
+})();

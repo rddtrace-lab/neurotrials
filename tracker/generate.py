@@ -2,6 +2,7 @@
 
 Reads data/trials_latest.csv, data/events.csv, data/meta.json (written by tracker.update) and writes a static site:
   index.html        this week's changes, upcoming primary completions, new registrations, headline counts
+  dashboard.html    charts: mechanisms, phase × class, registrations per year, completions per month, status
   explore.html      filterable table of every in-scope trial (client-side, data/trials.json)
   changes.html      detected changes by date + registrations updated in the last 14 days
   readouts.html     primary-completion calendar (upcoming 12 months, past 90 days, and stale "active" records)
@@ -16,6 +17,7 @@ from html import escape
 import pandas as pd
 from moduleA import rules
 from .labels import MECH_EN, GROUP_EN, DISEASE_EN, STATUS_EN, PHASE_EN, CHANGE_EN, AD_STAGE_EN
+from . import dashboard
 
 SITE_URL = os.environ.get("SITE_URL", "").rstrip("/")
 REPO_URL = os.environ.get("REPO_URL", "").rstrip("/")
@@ -88,7 +90,7 @@ def short_title(t, n=70):
 
 
 def page(title, body, rel="", desc=TAGLINE, canonical="", jsonld=None, og_type="website"):
-    nav = [("index.html", "This week"), ("explore.html", "Explore"), ("readouts.html", "Completion calendar"),
+    nav = [("index.html", "This week"), ("dashboard.html", "Dashboard"), ("explore.html", "Explore"), ("readouts.html", "Completion calendar"),
            ("mechanisms.html", "Mechanisms"), ("changes.html", "All changes"), ("about.html", "About")]
     links = "".join(f'<a href="{rel}{h}">{t}</a>' for h, t in nav)
     url = f"{SITE_URL}/{canonical}" if SITE_URL else ""
@@ -232,6 +234,7 @@ def main(data_dir, out_dir):
 selected and classified by mechanism with automated rules. "Putative disease-modifying" describes what a mechanism aims at, not evidence that a drug works.
 Last update: <b>{today:%B %d, %Y}</b> · change tracking since {track_start}.</p></section>
 <section class="tiles">{tiles}</section>
+<p><a href="dashboard.html">See the charts on the dashboard →</a></p>
 <section><h2>This week</h2>{week_html}</section>
 <section><h2>Primary completions due in the next 90 days</h2>{ul(''.join(trial_row(r, extra=f' · due {e(show_date(r.primary_completion))}') for r in shown.itertuples()))}
 <p>{f'Showing {len(shown)} of {len(up)}. ' if len(up) > len(shown) else ''}<a href="readouts.html">Full primary completion calendar →</a></p></section>
@@ -244,6 +247,11 @@ Last update: <b>{today:%B %d, %Y}</b> · change tracking since {track_start}.</p
     (out / "index.html").write_text(page(f"Parkinson's & Alzheimer's Clinical Trial Tracker (Phase 1–2/3) · {SITE_NAME}", body, canonical="",
                                          desc=f"Daily-updated tracker of {len(s):,} Parkinson's and Alzheimer's phase 1–2/3 drug trials from ClinicalTrials.gov: status changes, upcoming primary completions, new registrations, mechanisms.",
                                          jsonld=jl))
+
+    # ---------- dashboard ----------
+    (out / "dashboard.html").write_text(page(f"Dashboard · Parkinson's & Alzheimer's trial landscape · {SITE_NAME}", dashboard.build(s, act, today),
+                                             canonical="dashboard.html",
+                                             desc="Charts of active Parkinson's and Alzheimer's drug trials by mechanism, phase, class, registration year, upcoming primary completions and status."))
 
     # ---------- explore ----------
     opts = lambda vals: "".join(f"<option>{e(v)}</option>" for v in vals)
@@ -331,7 +339,7 @@ or active and not recruiting). A trial listing both diseases counts under each d
     val_fields = [("hy_max", "Max Hoehn & Yahr stage"), ("dur_max_y", "Max years since diagnosis"), ("mmse_lo", "MMSE minimum"),
                   ("mmse_hi", "MMSE maximum"), ("cdr", "CDR")]
     hist = {n: g for n, g in ev.groupby("nct")}
-    sm = [(u, meta["snapshot_date"]) for u in ("", "explore.html", "readouts.html", "mechanisms.html", "changes.html", "about.html")]
+    sm = [(u, meta["snapshot_date"]) for u in ("", "dashboard.html", "explore.html", "readouts.html", "mechanisms.html", "changes.html", "about.html")]
 
     def row(label, value):
         return f"<tr><th>{label}</th><td>{value}</td></tr>" if value not in ("", None) else ""
