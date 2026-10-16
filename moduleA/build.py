@@ -198,6 +198,7 @@ def main(snapshot, out_dir):
             "primary_completion": st.get("primaryCompletionDateStruct", {}).get("date"),
             "last_update": st.get("lastUpdatePostDateStruct", {}).get("date"),
             "first_posted": st.get("studyFirstPostDateStruct", {}).get("date"),
+            "conditions": ";".join(ps.get("conditionsModule", {}).get("conditions", [])),
             "has_results": bool(rec["study"].get("hasResults", False)),
             "sponsor": ps.get("sponsorCollaboratorsModule", {}).get("leadSponsor", {}).get("name"),
             "sponsor_class": ps.get("sponsorCollaboratorsModule", {}).get("leadSponsor", {}).get("class"),

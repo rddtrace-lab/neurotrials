@@ -14,7 +14,7 @@ import pandas as pd
 from moduleA import fetch, build
 
 KEEP = ["nct", "disease", "in_scope", "title", "phase", "status", "active", "start", "primary_completion", "last_update",
-        "first_posted", "has_results", "sponsor", "sponsor_class", "collaborators", "enrollment", "mech_primary", "mechs",
+        "first_posted", "has_results", "conditions", "healthy_volunteers", "sponsor", "sponsor_class", "collaborators", "enrollment", "mech_primary", "mechs",
         "interventions", "age_min", "age_max", "n_sites", "countries", "hy_max", "dur_max_y", "untreated", "dat_req",
         "saa_req", "lrrk2", "gba", "mmse_lo", "mmse_hi", "cdr", "amyloid_req", "tau_pet_req", "ad_stages"]
 TRACKED = ["status", "phase", "mech_primary", "enrollment", "primary_completion"]

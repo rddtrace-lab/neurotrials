@@ -35,3 +35,10 @@ table.kv{font-size:14px}table.kv th{width:42%;color:var(--muted);font-weight:500
 .crumb{font-size:14px;color:var(--muted);margin-top:20px}
 .cta{margin:32px 0;padding:14px 16px;border:1px dashed var(--line);border-radius:10px}
 .foot{font-size:13px;color:var(--muted);border-top:1px solid var(--line);margin-top:40px;padding-top:16px;padding-bottom:32px}
+:root{--warn:#fbe9e7;--warn-ink:#9a3412}
+@media (prefers-color-scheme:dark){:root{--warn:#3b211b;--warn-ink:#f6b39b}}
+.badge.warn{background:var(--warn);color:var(--warn-ink);white-space:normal}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
+th[aria-sort=ascending]::after{content:" ▲";font-size:11px}th[aria-sort=descending]::after{content:" ▼";font-size:11px}
+.toc{font-size:15px}
+.tile .s{font-size:12px;color:var(--muted);margin-top:4px}

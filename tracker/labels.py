@@ -6,8 +6,11 @@ MECH_EN = {
     "GUT": "Gut microbiome", "GENECELL": "Gene / cell therapy", "SYM_PD": "PD symptomatic", "SYM_COG": "Cognitive symptomatic",
     "SYM_NP": "Non-motor / neuropsychiatric symptoms", "DX": "Diagnostic / imaging", "OTHER": "Other / unclassified",
 }
-GROUP_EN = {"DMT": "Disease-modifying", "SYM": "Symptomatic", "UNK": "Unclassified", "DX": "Diagnostic"}
+# "Putative": the class describes what a mechanism aims at, not evidence that the drug modifies disease.
+GROUP_EN = {"DMT": "Putative disease-modifying", "SYM": "Symptomatic", "UNK": "Unclassified", "DX": "Diagnostic"}
 DISEASE_EN = {"PD": "Parkinson's", "AD": "Alzheimer's", "PD+AD": "Parkinson's + Alzheimer's"}
+# AD stages found in inclusion criteria (module A codes are Korean labels)
+AD_STAGE_EN = {"preclinical": "Preclinical", "MCI·초기": "MCI / early", "경도": "Mild", "경도~중등도": "Mild to moderate", "중등도~중증": "Moderate to severe"}
 STATUS_EN = {
     "RECRUITING": "Recruiting", "NOT_YET_RECRUITING": "Not yet recruiting", "ENROLLING_BY_INVITATION": "Enrolling by invitation",
     "ACTIVE_NOT_RECRUITING": "Active, not recruiting", "COMPLETED": "Completed", "TERMINATED": "Terminated",
