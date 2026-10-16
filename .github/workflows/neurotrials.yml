@@ -1,0 +1,48 @@
+# NeuroTrials Watch daily rebuild: fetch ClinicalTrials.gov, classify, log changes, regenerate the site, deploy to GitHub Pages.
+name: NeuroTrials Watch daily update
+on:
+  schedule:
+    - cron: "17 10 * * *"   # every day 10:17 UTC
+  workflow_dispatch: {}
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: neurotrials-update
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "pandas>=2.2"
+      - name: Fetch, classify, log changes
+        run: python -m tracker.update data raw
+      - name: Commit data
+        run: |
+          git config user.name "neurotrials-bot"
+          git config user.email "neurotrials-bot@users.noreply.github.com"
+          git add data
+          if ! git diff --cached --quiet; then
+            git commit -m "neurotrials data: $(date -u +%F)"
+            for i in 1 2 3 4; do git pull --rebase && git push && break; sleep $((i*5)); done
+          fi
+      - name: Build site
+        env:
+          SITE_URL: ${{ vars.SITE_URL || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}
+          REPO_URL: https://github.com/${{ github.repository }}
+        run: python -m tracker.generate data site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
