@@ -190,6 +190,21 @@ def lines(xs, series, classes, labels, ymax=100, unit="%", notes=None, width=Non
     return "".join(out)
 
 
+def spark(vals, label=""):
+    """Tiny trend line for a KPI tile (no axes; the tile's numbers carry the values). None = gap."""
+    pts = [(i, v) for i, v in enumerate(vals) if v is not None]
+    if len(pts) < 3:
+        return ""
+    w, h, n = 120, 30, len(vals)
+    lo, hi = min(v for _, v in pts), max(v for _, v in pts)
+    sx = lambda i: 2 + (w - 6) * i / max(n - 1, 1)
+    sy = lambda v: h - 4 - (h - 8) * ((v - lo) / (hi - lo) if hi > lo else .5)
+    d = " ".join(f"{sx(i):.1f},{sy(v):.1f}" for i, v in pts)
+    x, y = sx(pts[-1][0]), sy(pts[-1][1])
+    return (f"<svg class='spark' viewBox='0 0 {w} {h}' role='img' aria-label='{e(label)}'><polyline points='{d}'/>"
+            f"<circle cx='{x:.1f}' cy='{y:.1f}' r='3'/></svg>")
+
+
 def median(v):
     v = sorted(x for x in v if x == x)
     if not v:
@@ -257,7 +272,7 @@ def build(s, act, today, group_en=GROUP_EN):
     y0 = 2012
     years = list(range(y0, today.year + 1))
     fy = s.fp_date.map(lambda d: d.year if d else None)
-    ser = [[int(((fy == y) & (s.group == gcode)).sum()) for y in years] for gcode in ("DMT", "SYM", "UNK")]
+    ser = ser_reg = [[int(((fy == y) & (s.group == gcode)).sum()) for y in years] for gcode in ("DMT", "SYM", "UNK")]
     svg = columns_stacked([str(y)[2:] if i else str(y) for i, y in enumerate(years)], ser, ["s1", "s2", "s0"], labs, partial=len(years) - 1)
     ly = today.year - 1
     ra, rb = sum(sr[years.index(ly)] for sr in ser), sum(sr[years.index(ly - 5)] for sr in ser)
@@ -458,26 +473,27 @@ def build(s, act, today, group_en=GROUP_EN):
                     hbars_single(rows, unit="%", vmax=100), "", table(["Sponsor type", "% past date", "Count"], rows), "", take, why))
 
     # ---- at a glance: stat tiles (number → what it is → so what), all computed ----
-    def tile(v, label, so, href):
-        return f"<a class='kpi' href='{href}'><span class='v'>{v}</span><span class='l'>{label}</span><span class='so'>{so}</span></a>"
+    def tile(v, label, so, href, sp=""):
+        return f"<a class='kpi' href='{href}'><span class='kt'><span class='v'>{v}</span>{sp}</span><span class='l'>{label}</span><span class='so'>{so}</span></a>"
+    gc_row = m2[mrows.index(gc)][:-1]
     tiles = [tile(f"{len(act):,}", f"trials active now, of {len(s):,} tracked", "Parkinson's and Alzheimer's, phase 1–2/3.", "explore.html"),
              tile(f"{P(d_early, d_tot)}%", "of disease-slowing drug trials are still early (phase 1–1/2)", "Late-stage results are rare; each one matters.", "#landscape"),
              tile(f"{sum(vals)}", "trials finish collecting main results in the next 12 months", "Expect steady results news.", "readouts.html"),
-             tile(f"{go} → {gn}", f"{e(MECH_EN[gc]).lower()} trial starts ({yrs[4]}–{str(yrs[6])[2:]} → {yrs[7]}–{str(yrs[9])[2:]})", "The fastest-growing approach.", "#pipeline"),
+             tile(f"{go} → {gn}", f"{e(MECH_EN[gc]).lower()} trial starts ({yrs[4]}–{str(yrs[6])[2:]} → {yrs[7]}–{str(yrs[9])[2:]})", "The fastest-growing approach.", "#pipeline", spark(gc_row, "Starts per year")),
              tile(f"{med_rows[2][1]} / {med_rows[2][2]}", "people in a typical phase 2 (Parkinson's / Alzheimer's)", "Small trials can miss modest effects.", "#design"),
              tile(f"{i1}% / {i2}%", "of disease-slowing trials led by industry (Parkinson's / Alzheimer's)", "Who carries the risk differs by disease.", "#sponsors")]
     if rec_ad[1] and old_ad[1]:
         tiles.append(tile(f"{old_ad[0]:.0f}% → {rec_ad[0]:.0f}%", f"of Alzheimer's trials require an amyloid test ({by[0]}–{str(by[2])[2:]} → {by[-3]}–{str(by[-1])[2:]} starts)",
-                          "Biomarker screening is becoming standard.", "#design"))
+                          "Biomarker screening is becoming standard.", "#design", spark(adp, "Share per start year")))
     tiles.append(tile(f"{P(nst, len(act))}%", "of 'active' records are past their end date with no update", "Check dates before relying on them.", "#execution"))
     kpis = f"<div class='kpis'>{''.join(tiles)}</div>"
-    intro = (f"<p class='lede'>Every Parkinson's and Alzheimer's drug trial on ClinicalTrials.gov, summarized daily. "
-             f"Snapshot of {today:%B %d, %Y}. <span class='muted'>Each bold headline below is the chart's conclusion; "
-             "open “How it's counted” for the method and data.</span></p>")
+    intro = (f"<span class='live'><i></i>Live · updated {today:%b %d, %Y}</span><h1>Trial landscape dashboard</h1>"
+             "<p class='lede'>The Parkinson's and Alzheimer's drug-trial landscape at a glance, recomputed every day from ClinicalTrials.gov. "
+             "<span class='muted'>Each headline is the chart's conclusion; open “How it's counted” for the method and data.</span></p>")
     jump = ("<nav class='jump' aria-label='Dashboard sections'><a href='#landscape'>Landscape</a><a href='#pipeline'>Pipeline</a>"
             "<a href='#sponsors'>Sponsors &amp; geography</a><a href='#design'>Trial design</a><a href='#execution'>Execution</a></nav>")
 
-    body = (f"<h1>Dashboard</h1>{intro}{kpis}{jump}"
+    body = (f"<section class='hero2 dash'>{intro}</section>{kpis}{jump}"
             + f"<div id='landscape'>{section('Landscape', 'What is active now, and how the field has grown.', cards)}</div>"
             + f"<div id='pipeline'>{section('Pipeline', 'Where activity sits by mechanism and phase, and how it is shifting.', pipe)}</div>"
             + f"<div id='sponsors'>{section('Sponsors & geography', 'Who runs the trials and where.', sp)}</div>"

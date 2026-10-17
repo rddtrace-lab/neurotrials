@@ -23,6 +23,13 @@ SITE_URL = os.environ.get("SITE_URL", "").rstrip("/")
 REPO_URL = os.environ.get("REPO_URL", "").rstrip("/")
 SITE_NAME = "NeuroTrials Watch"
 TAGLINE = "Parkinson's and Alzheimer's drug trials, updated daily from ClinicalTrials.gov"
+STAMP = ""  # snapshot date shown in the header status pill; set in main()
+
+
+def live_pill(today, text=None):
+    return f'<span class="live"><i></i>{text or "Live"} · updated {today:%b %d, %Y}</span>'
+
+
 ASSETS = pathlib.Path(__file__).with_name("assets")
 HV_RX = re.compile(r"healthy", re.I)
 
@@ -108,11 +115,14 @@ def page(title, body, rel="", desc=TAGLINE, canonical="", jsonld=None, og_type="
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0c1015" media="(prefers-color-scheme: dark)">
 <link rel="stylesheet" href="{rel}assets/style.css"><link rel="alternate" type="application/rss+xml" title="{SITE_NAME}" href="{rel}feed.xml">
-</head><body><header class="top"><div class="wrap"><a class="brand" href="{rel}index.html"><svg class="mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect width="24" height="24" rx="7" fill="currentColor"/><path d="M4 13h3.5l2-5 3 9 2.2-6 1.3 2H20" fill="none" stroke="var(--panel)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>{SITE_NAME}</a><nav>{links}</nav></div></header>
+</head><body><header class="top"><div class="wrap"><a class="brand" href="{rel}index.html"><svg class="mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect width="24" height="24" rx="7" fill="currentColor"/><path d="M4 13h3.5l2-5 3 9 2.2-6 1.3 2H20" fill="none" stroke="var(--panel)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>{SITE_NAME}</a><nav>{links}</nav><a class="btn sm ghost hdr" href="{rel}feed.xml">Subscribe</a></div></header>
 <main class="wrap">{body}</main>
-<footer class="wrap foot">Data: <a href="https://clinicaltrials.gov">ClinicalTrials.gov</a> (U.S. National Library of Medicine), retrieved daily.
-Mechanism labels are assigned automatically and can be wrong (see <a href="{rel}about.html">About</a>). Not medical advice.
-<a href="{rel}feed.xml">RSS</a> · <a href="{rel}data/trials.csv">Download data</a>{f' · <a href="{REPO_URL}">Source code</a>' if REPO_URL else ''}</footer>
+<footer class="foot"><div class="wrap"><div class="fgrid">
+<div class="fbrand"><span class="brand">{SITE_NAME}</span><p>{TAGLINE}. Independent, open data, no login.</p></div>
+<div><h4>Product</h4><a href="{rel}dashboard.html">Dashboard</a><a href="{rel}explore.html">Explore trials</a><a href="{rel}readouts.html">Completion calendar</a><a href="{rel}changes.html">Change log</a></div>
+<div><h4>Data</h4><a href="{rel}data/trials.csv">Download CSV</a><a href="{rel}feed.xml">RSS feed</a><a href="{rel}about.html">Methods</a>{f'<a href="{REPO_URL}">Source code</a>' if REPO_URL else ''}</div>
+<div><h4>Source</h4><p>Registry data from <a href="https://clinicaltrials.gov">ClinicalTrials.gov</a> (U.S. National Library of Medicine), retrieved daily. Mechanism labels are assigned automatically and can be wrong. Not medical advice.</p></div>
+</div><div class="fbar"><span>© {dt.date.today().year} {SITE_NAME}</span><span>Data snapshot {STAMP}</span></div></div></footer>
 <script src="{rel}assets/app.js" defer></script></body></html>"""
 
 
@@ -131,6 +141,8 @@ def main(data_dir, out_dir):
     ev = pd.read_csv(data / "events.csv")
     meta = json.loads((data / "meta.json").read_text())
     today = dt.date.fromisoformat(meta["snapshot_date"])
+    global STAMP
+    STAMP = f"{today:%B %d, %Y}"
     for c in ("conditions", "healthy_volunteers"):
         if c not in t:
             t[c] = None
@@ -227,26 +239,39 @@ def main(data_dir, out_dir):
     pd_dmt = int(((core.disease.str.contains("PD")) & (core.group == "DMT")).sum())
     ad_dmt = int(((core.disease.str.contains("AD")) & (core.group == "DMT")).sum())
     both_note = "excludes healthy-volunteer studies; trials listing both diseases count in each"
-    tiles = (tile("Active putative disease-modifying trials · Parkinson's", pd_dmt, both_note)
-             + tile("Active putative disease-modifying trials · Alzheimer's", ad_dmt, both_note)
+    tiles = (tile("Active trials of drugs aiming to slow Parkinson's", pd_dmt, both_note)
+             + tile("Active trials of drugs aiming to slow Alzheimer's", ad_dmt, both_note)
              + tile("Primary completions due in the next 90 days", len(up), "active trials, dates as registered")
              + tile("New registrations, last 30 days", len(new30), "by first-posted date"))
     week_html = ul("".join(ev_item(x) for x in week.sort_values("date", ascending=False).itertuples()),
                    f"No tracked field changed in the last 7 days. Change tracking started on {track_start}; history accumulates daily.")
-    shown = up.head(15)
-    body = f"""<section class="hero"><h1>Parkinson's &amp; Alzheimer's drug trial tracker</h1><p>{TAGLINE}. Interventional drug, biologic and gene/cell trials from early phase 1 to phase 2/3,
-selected and classified by mechanism with automated rules. "Putative disease-modifying" describes what a mechanism aims at, not evidence that a drug works.
-Last update: <b>{today:%B %d, %Y}</b> · change tracking since {track_start}.</p></section>
+    shown = up.head(10)
+
+    def due_row(r):
+        d = r.pc_date
+        chip = f'<span class="date"><b>{d:%b}</b>{d:%d}</span>' if d else '<span class="date">—</span>'
+        approx = "~" if isinstance(r.primary_completion, str) and len(r.primary_completion) <= 7 else ""
+        return (f'<li class="dated">{chip}<div><a href="trials/{r.nct}.html">{e(short_title(r.title, 110))}</a>'
+                f'<div class="meta">{DISEASE_EN.get(r.disease, r.disease)} · {phase(r.phase)} · {badge(MECH_EN.get(r.mech_primary, r.mech_primary), r.group.lower())} · '
+                f'{e(r.sponsor)}{" · approx. month" if approx else ""}</div></div></li>')
+    body = f"""<section class="hero2">{live_pill(today, "Live")}
+<h1>Every Parkinson's and Alzheimer's drug trial, <span class="hl2">tracked daily.</span></h1>
+<p class="sub">{len(s):,} interventional trials from early phase 1 to phase 2/3, classified by mechanism and checked against ClinicalTrials.gov every day:
+status changes, delays, upcoming results and new entrants in one place.</p>
+<div class="ctas"><a class="btn" href="dashboard.html">Open the dashboard</a><a class="btn ghost" href="explore.html">Explore {len(s):,} trials</a></div></section>
 <section class="tiles">{tiles}</section>
-<p><a href="dashboard.html">See the charts on the dashboard →</a></p>
-<section><h2>This week</h2>{week_html}</section>
-<section><h2>Primary completions due in the next 90 days</h2>{ul(''.join(trial_row(r, extra=f' · due {e(show_date(r.primary_completion))}') for r in shown.itertuples()))}
-<p>{f'Showing {len(shown)} of {len(up)}. ' if len(up) > len(shown) else ''}<a href="readouts.html">Full primary completion calendar →</a></p></section>
-<section><h2>Newly registered (last 30 days)</h2>{ul(''.join(trial_row(r, extra=f' · posted {e(r.first_posted)}') for r in new30.head(15).itertuples()))}</section>
-<section><h2>Registrations updated in the last 14 days</h2><p class="muted small">The sponsor edited the record; the edit may be to any field, not only those tracked above.</p>
-{ul(''.join(trial_row(r, extra=f' · updated {e(r.last_update)}') for r in upd14.head(15).itertuples()))}
-<p>{f'Showing 15 of {len(upd14)}. ' if len(upd14) > 15 else ''}<a href="changes.html">All changes →</a></p></section>
-<section class="cta"><p>Follow along: <a href="feed.xml">RSS feed of detected changes</a> · <a href="data/trials.csv">download the full table (CSV)</a>.</p></section>"""
+<div class="panels">
+<div class="col"><section class="panel"><div class="ph"><h2>This week</h2><a href="changes.html">All changes →</a></div>{week_html}</section>
+<section class="panel"><div class="ph"><h2>Newly registered</h2><span class="muted small">last 30 days</span></div>{ul(''.join(trial_row(r, extra=f' · posted {e(r.first_posted)}') for r in new30.head(8).itertuples()))}</section>
+</div><div class="col"><section class="panel"><div class="ph"><h2>Results due, next 90 days</h2><a href="readouts.html">Calendar →</a></div>
+<p class="muted small">Primary completion as registered; topline results usually follow later. {len(up)} trials in the window.</p>
+<ul class="list">{''.join(due_row(r) for r in shown.itertuples())}</ul></section>
+<section class="panel"><div class="ph"><h2>Recently updated</h2><span class="muted small">last 14 days</span></div>
+<p class="muted small">The sponsor edited the record; the edit may be to any field.</p>
+{ul(''.join(trial_row(r, extra=f' · updated {e(r.last_update)}') for r in upd14.head(8).itertuples()))}</section>
+</div></div>
+<section class="cta2"><div><h2>Get the daily changes</h2><p>Status changes, delays and new trials as they are detected. No account needed.</p></div>
+<div class="ctas"><a class="btn" href="feed.xml">Subscribe via RSS</a><a class="btn ghost" href="data/trials.csv">Download CSV</a></div></section>"""
     jl = {"@context": "https://schema.org", "@type": "WebSite", "name": SITE_NAME, "description": TAGLINE, **({"url": SITE_URL + "/"} if SITE_URL else {})}
     (out / "index.html").write_text(page(f"Parkinson's & Alzheimer's Clinical Trial Tracker (Phase 1–2/3) · {SITE_NAME}", body, canonical="",
                                          desc=f"Daily-updated tracker of {len(s):,} Parkinson's and Alzheimer's phase 1–2/3 drug trials from ClinicalTrials.gov: status changes, upcoming primary completions, new registrations, mechanisms.",
