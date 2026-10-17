@@ -232,3 +232,15 @@ html,body{overflow-x:clip}
 .panels{align-items:start}.panels .col{display:flex;flex-direction:column;gap:20px;min-width:0}
 @media (max-width:720px){.tiles{grid-template-columns:1fr 1fr}.tile .v{font-size:26px}.tile .s{display:none}}
 .kpi .v{white-space:nowrap}.kpi .kt{flex-wrap:wrap;row-gap:6px}
+/* mobile overflow fix: grid tracks may shrink below their content; numbers wrap on narrow screens instead of pushing the column off-screen */
+.kpis,.tiles,.cards,.panels,.fgrid{min-width:0}
+.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kpi,.tile,.card,.panel{min-width:0;overflow-wrap:anywhere}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:720px){
+ .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .kpi .v{white-space:normal;font-size:clamp(20px,6.2vw,26px)}.tile .v{font-size:clamp(20px,6.2vw,26px)}
+ .kpi{padding:12px}.kpi .l{font-size:13px}.kpi .so{font-size:12px}.spark{width:64px}
+ .kpis,.tiles{gap:10px}
+}
+@media (max-width:340px){.kpis,.tiles{grid-template-columns:minmax(0,1fr)}}
