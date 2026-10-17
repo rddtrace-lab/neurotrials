@@ -31,6 +31,9 @@ def live_pill(today, text=None):
 
 
 ASSETS = pathlib.Path(__file__).with_name("assets")
+# content hash appended to asset URLs so browsers fetch new CSS/JS after each change (Pages caches for 10 min)
+import hashlib
+ASSET_V = hashlib.md5(b"".join((ASSETS / f).read_bytes() for f in ("style.css", "app.js"))).hexdigest()[:8]
 HV_RX = re.compile(r"healthy", re.I)
 
 
@@ -114,7 +117,7 @@ def page(title, body, rel="", desc=TAGLINE, canonical="", jsonld=None, og_type="
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0c1015" media="(prefers-color-scheme: dark)">
-<link rel="stylesheet" href="{rel}assets/style.css"><link rel="alternate" type="application/rss+xml" title="{SITE_NAME}" href="{rel}feed.xml">
+<link rel="stylesheet" href="{rel}assets/style.css?v={ASSET_V}"><link rel="alternate" type="application/rss+xml" title="{SITE_NAME}" href="{rel}feed.xml">
 </head><body><header class="top"><div class="wrap"><a class="brand" href="{rel}index.html"><svg class="mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect width="24" height="24" rx="7" fill="currentColor"/><path d="M4 13h3.5l2-5 3 9 2.2-6 1.3 2H20" fill="none" stroke="var(--panel)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>{SITE_NAME}</a><nav>{links}</nav><a class="btn sm ghost hdr" href="{rel}feed.xml">Subscribe</a></div></header>
 <main class="wrap">{body}</main>
 <footer class="foot"><div class="wrap"><div class="fgrid">
@@ -123,7 +126,7 @@ def page(title, body, rel="", desc=TAGLINE, canonical="", jsonld=None, og_type="
 <div><h4>Data</h4><a href="{rel}data/trials.csv">Download CSV</a><a href="{rel}feed.xml">RSS feed</a><a href="{rel}about.html">Methods</a>{f'<a href="{REPO_URL}">Source code</a>' if REPO_URL else ''}</div>
 <div><h4>Source</h4><p>Registry data from <a href="https://clinicaltrials.gov">ClinicalTrials.gov</a> (U.S. National Library of Medicine), retrieved daily. Mechanism labels are assigned automatically and can be wrong. Not medical advice.</p></div>
 </div><div class="fbar"><span>© {dt.date.today().year} {SITE_NAME}</span><span>Data snapshot {STAMP}</span></div></div></footer>
-<script src="{rel}assets/app.js" defer></script></body></html>"""
+<script src="{rel}assets/app.js?v={ASSET_V}" defer></script></body></html>"""
 
 
 def badge(text, cls=""):
