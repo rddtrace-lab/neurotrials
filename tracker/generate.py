@@ -92,7 +92,8 @@ def short_title(t, n=70):
 def page(title, body, rel="", desc=TAGLINE, canonical="", jsonld=None, og_type="website"):
     nav = [("index.html", "This week"), ("dashboard.html", "Dashboard"), ("explore.html", "Explore"), ("readouts.html", "Completion calendar"),
            ("mechanisms.html", "Mechanisms"), ("changes.html", "All changes"), ("about.html", "About")]
-    links = "".join(f'<a href="{rel}{h}">{t}</a>' for h, t in nav)
+    cur = canonical or "index.html"
+    links = "".join(f'<a href="{rel}{h}"{" aria-current=\"page\"" if h == cur else ""}>{t}</a>' for h, t in nav)
     url = f"{SITE_URL}/{canonical}" if SITE_URL else ""
     canon = f'<link rel="canonical" href="{url}">' if SITE_URL else ""
     og = (f'<meta property="og:site_name" content="{SITE_NAME}"><meta property="og:type" content="{og_type}">'
@@ -103,8 +104,11 @@ def page(title, body, rel="", desc=TAGLINE, canonical="", jsonld=None, og_type="
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(title)}</title><meta name="description" content="{e(desc)}">{canon}{og}{ld}
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0c1015" media="(prefers-color-scheme: dark)">
 <link rel="stylesheet" href="{rel}assets/style.css"><link rel="alternate" type="application/rss+xml" title="{SITE_NAME}" href="{rel}feed.xml">
-</head><body><header class="top"><div class="wrap"><a class="brand" href="{rel}index.html">{SITE_NAME}</a><nav>{links}</nav></div></header>
+</head><body><header class="top"><div class="wrap"><a class="brand" href="{rel}index.html"><svg class="mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect width="24" height="24" rx="7" fill="currentColor"/><path d="M4 13h3.5l2-5 3 9 2.2-6 1.3 2H20" fill="none" stroke="var(--panel)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>{SITE_NAME}</a><nav>{links}</nav></div></header>
 <main class="wrap">{body}</main>
 <footer class="wrap foot">Data: <a href="https://clinicaltrials.gov">ClinicalTrials.gov</a> (U.S. National Library of Medicine), retrieved daily.
 Mechanism labels are assigned automatically and can be wrong (see <a href="{rel}about.html">About</a>). Not medical advice.
