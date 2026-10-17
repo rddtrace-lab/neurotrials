@@ -44,8 +44,11 @@ def table(head, rows):
     return f"<details class='tbl'><summary>Show data table</summary><div class='tablewrap'><table><thead><tr>{th}</tr></thead><tbody>{tr}</tbody></table></div></details>"
 
 
-def card(title, sub, svg, leg, tbl, cls=""):
-    return f"<section class='card {cls}'><h2>{e(title)}</h2><p class='muted small'>{sub}</p>{leg}{svg}{tbl}</section>"
+def card(title, sub, svg, leg, tbl, cls="", take="", why=""):
+    """Takeaway first: chart name (eyebrow) → takeaway headline → why it matters → chart → what is shown (method) → data table."""
+    head = f"<div class='eyebrow'>{e(title)}</div><h2>{take}</h2>" if take else f"<h2>{e(title)}</h2>"
+    why = f"<p class='why'><b>Why it matters.</b> {why}</p>" if why else ""
+    return f"<section class='card {cls}'>{head}{why}{leg}{svg}<p class='muted small how'><b>What is shown.</b> {sub}</p>{tbl}</section>"
 
 
 def bar_end(x, y, w, h, r=4, horizontal=True):
@@ -211,6 +214,7 @@ def build(s, act, today, group_en=GROUP_EN):
     """s: in-scope trials (with group, pc_date, fp_date, hv_study, stale); act: active subset. Returns (body_html, n_charts)."""
     cards = []
     core = act[~act.hv_study]
+    P = lambda a, b: round(100 * a / b) if b else 0
 
     # 1. mechanisms, PD vs AD (putative disease-modifying + symptomatic; unclassified last)
     mrows = []
@@ -222,10 +226,14 @@ def build(s, act, today, group_en=GROUP_EN):
             mrows.append((lab, int(g.disease.str.contains("PD").sum()), int(g.disease.str.contains("AD").sum()), code))
     mrows.sort(key=lambda r: (r[3] == "OTHER", -(r[1] + r[2])))
     svg = hbars_paired([(l, a, b) for l, a, b, _ in mrows], "Parkinson's", "Alzheimer's", "s1", "s2")
+    named = [r for r in mrows if r[3] != "OTHER"]
+    tpd, tad = max(named, key=lambda r: r[1]), max(named, key=lambda r: r[2])
+    take = f"Parkinson's trials cluster in <b>{e(tpd[0])}</b> ({tpd[1]}); Alzheimer's in <b>{e(tad[0])}</b> ({tad[2]})"
+    why = "Crowded mechanisms mean more competition for the same patients, sites and investor attention; thin ones are open space or untested ground."
     cards.append(card("Active trials by mechanism", f"{len(core):,} active trials, healthy-volunteer studies excluded. A trial listing both diseases counts in both bars. "
                       "Unclassified = drug not recognised by the rules, so other bars are lower bounds.",
                       svg, legend([("s1", "Parkinson's"), ("s2", "Alzheimer's")]),
-                      table(["Mechanism", "Parkinson's", "Alzheimer's"], [(l, a, b) for l, a, b, _ in mrows]), "wide"))
+                      table(["Mechanism", "Parkinson's", "Alzheimer's"], [(l, a, b) for l, a, b, _ in mrows]), "wide", take, why))
 
     # 2. phase × class
     phases = ["0/1 (초기 1상)", "1", "1/2", "2", "2/3"]
@@ -233,9 +241,12 @@ def build(s, act, today, group_en=GROUP_EN):
     ser = [[int(((core.phase.astype(str) == p) & (core.group == gcode)).sum()) for p in phases] for gcode in ("DMT", "SYM", "UNK")]
     labs = [group_en["DMT"], group_en["SYM"], group_en["UNK"]]
     svg = columns_stacked(pl, ser, ["s1", "s2", "s0"], labs)
+    d_early, d_tot = sum(ser[0][:3]), sum(ser[0])
+    take = f"<b>{P(d_early, d_tot)}%</b> of active putative disease-modifying trials are still in phase 1–1/2; only <b>{ser[0][4]}</b> are in phase 2/3"
+    why = "Most disease-modifying bets are early. Late-stage readouts that could change practice are few, so each one carries weight."
     cards.append(card("Active trials by phase and class", "Class describes what the mechanism aims at, not evidence that the drug works.",
                       svg, legend([("s1", labs[0]), ("s2", labs[1]), ("s0", labs[2])]),
-                      table(["Phase"] + labs, [(pl[i], ser[0][i], ser[1][i], ser[2][i]) for i in range(len(pl))])))
+                      table(["Phase"] + labs, [(pl[i], ser[0][i], ser[1][i], ser[2][i]) for i in range(len(pl))]), "", take, why))
 
     # 3. registrations per year
     y0 = 2012
@@ -243,10 +254,15 @@ def build(s, act, today, group_en=GROUP_EN):
     fy = s.fp_date.map(lambda d: d.year if d else None)
     ser = [[int(((fy == y) & (s.group == gcode)).sum()) for y in years] for gcode in ("DMT", "SYM", "UNK")]
     svg = columns_stacked([str(y)[2:] if i else str(y) for i, y in enumerate(years)], ser, ["s1", "s2", "s0"], labs, partial=len(years) - 1)
+    ly = today.year - 1
+    ra, rb = sum(sr[years.index(ly)] for sr in ser), sum(sr[years.index(ly - 5)] for sr in ser)
+    trend = f"up {P(ra - rb, rb)}%" if ra > rb else (f"down {P(rb - ra, rb)}%" if ra < rb else "flat")
+    take = f"<b>{ra}</b> new trials registered in {ly}, vs {rb} in {ly - 5} ({trend})"
+    why = "A read on whether money and attention are flowing into the field. Compare full years; the current year is partial."
     cards.append(card("New registrations per year", f"In-scope trials by year first posted on ClinicalTrials.gov, {y0}–{today.year}. "
                       f"* {today.year} is year to date (through {today:%b %d}).",
                       svg, legend([("s1", labs[0]), ("s2", labs[1]), ("s0", labs[2])]),
-                      table(["Year"] + labs, [(str(y) + ("*" if y == today.year else ""), ser[0][i], ser[1][i], ser[2][i]) for i, y in enumerate(years)])))
+                      table(["Year"] + labs, [(str(y) + ("*" if y == today.year else ""), ser[0][i], ser[1][i], ser[2][i]) for i, y in enumerate(years)]), "", take, why))
 
     # 4. primary completions next 12 months
     months = []
@@ -257,18 +273,24 @@ def build(s, act, today, group_en=GROUP_EN):
     keyed = act.pc_date.map(lambda d: d.strftime("%Y-%m") if d else None)
     vals = [int((keyed == d.strftime("%Y-%m")).sum()) for d in months]
     svg = columns_stacked([d.strftime("%b") + ("" if d.month != 1 and k else " " + d.strftime("%y")) for k, d in enumerate(months)], [vals], ["s1"], ["Trials"])
+    pk = max(range(12), key=lambda k: vals[k])
+    take = f"<b>{sum(vals)}</b> trials reach primary completion in the next 12 months; busiest month {months[pk]:%b %Y} ({vals[pk]})"
+    why = "Primary completion usually comes months before topline results, so this is the queue of upcoming news. Sponsors' dates often slip."
     cards.append(card("Primary completions due, next 12 months", f"Active trials by registered primary completion month, {months[0]:%b %Y}–{months[-1]:%b %Y}. "
                       "Dates are set by sponsors and often slip; see the <a href='readouts.html'>completion calendar</a> for the trials.",
-                      svg, "", table(["Month", "Trials"], [(d.strftime("%b %Y"), v) for d, v in zip(months, vals)])))
+                      svg, "", table(["Month", "Trials"], [(d.strftime("%b %Y"), v) for d, v in zip(months, vals)]), "", take, why))
 
     # 5. status, with stale shown separately
     order = ["RECRUITING", "NOT_YET_RECRUITING", "ENROLLING_BY_INVITATION", "ACTIVE_NOT_RECRUITING"]
     srows = [(STATUS_EN[st], int(((act.status == st) & ~act.stale).sum()), int(((act.status == st) & act.stale).sum())) for st in order]
     svg = hbars_paired(srows, "Primary completion still ahead", "Completion date passed, status not updated", "s1", "s2")
+    nst = int(act.stale.sum())
+    take = f"<b>{nst}</b> of {len(act)} 'active' records ({P(nst, len(act))}%) are past their completion date"
+    why = "Registry status lags reality. Treat those trials' status and dates as unconfirmed until the sponsor updates them."
     cards.append(card("Active trials by recruitment status", f"{len(act):,} active trials (healthy-volunteer studies included). The second bar counts records whose "
                       "registered primary completion date has passed without a status update; they may be outdated or in follow-up.",
                       svg, legend([("s1", "Primary completion still ahead"), ("s2", "Completion date passed, status not updated")]),
-                      table(["Status", "Completion ahead", "Completion passed"], srows)))
+                      table(["Status", "Completion ahead", "Completion passed"], srows), "", take, why))
 
     import pandas as pd
     ind = s.sponsor_class.eq("INDUSTRY")
@@ -286,13 +308,18 @@ def build(s, act, today, group_en=GROUP_EN):
     for lab, sub in [("Parkinson's · putative DMT", core[is_pd(core) & (core.group == "DMT")]), ("Alzheimer's · putative DMT", core[is_ad(core) & (core.group == "DMT")]),
                      ("Parkinson's · symptomatic", core[is_pd(core) & (core.group == "SYM")]), ("Alzheimer's · symptomatic", core[is_ad(core) & (core.group == "SYM")])]:
         rows.append((lab, [int(sub.industry.sum()), int((~sub.industry).sum())]))
+    i1, i2 = P(rows[0][1][0], sum(rows[0][1])), P(rows[1][1][0], sum(rows[1][1]))
+    take = f"Industry leads <b>{i1}%</b> of Parkinson's {'but only' if i1 - i2 >= 10 else 'and'} <b>{i2}%</b> of Alzheimer's putative disease-modifying trials"
+    why = "Shows who carries the risk: industry-led trials are commercial bets; academic-led ones are often earlier, grant-funded science."
     sp.append(card("Who sponsors active trials", "Lead sponsor registered as industry vs. academic, government or other. Healthy-volunteer studies excluded.",
                    stacked100(rows, ["Industry", "Academic / other"], ["s1", "s2"]), legend([("s1", "Industry"), ("s2", "Academic / other")]),
-                   table(["Group", "Industry", "Academic / other"], [(l, v[0], v[1]) for l, v in rows])))
+                   table(["Group", "Industry", "Academic / other"], [(l, v[0], v[1]) for l, v in rows]), "", take, why))
     top_sp = core.sponsor.value_counts().head(12)
     rows = [(n, int(c), "industry" if core[core.sponsor == n].industry.any() else "academic / other") for n, c in top_sp.items()]
+    take = f"<b>{e(rows[0][0])}</b> runs the most active trials ({rows[0][1]}), followed by {e(rows[1][0])} ({rows[1][1]})"
+    why = "The most active sponsors are the likeliest partners, competitors and sources of upcoming readouts."
     sp.append(card("Most active lead sponsors", "Lead sponsors with the most active trials (healthy-volunteer studies excluded). Subsidiaries are not merged.",
-                   hbars_single(rows), "", table(["Sponsor", "Active trials", "Type"], rows)))
+                   hbars_single(rows), "", table(["Sponsor", "Active trials", "Type"], rows), "", take, why))
     cc = {}
     for r in core.itertuples():
         for c in set(str(r.countries).split(";")) if isinstance(r.countries, str) else []:
@@ -302,9 +329,13 @@ def build(s, act, today, group_en=GROUP_EN):
                 d[1] += "AD" in r.disease
     top_c = sorted(cc.items(), key=lambda kv: -(kv[1][0] + kv[1][1]))[:15]
     n_nosite = int(core.countries.isna().sum())
+    n_us = sum(1 for r in core.itertuples() if isinstance(r.countries, str) and "United States" in r.countries.split(";"))
+    others = [c for c, _ in top_c if c != "United States"][:2]
+    take = f"The United States has sites in <b>{P(n_us, len(core))}%</b> of active trials; next are {e(others[0])} and {e(others[1])}"
+    why = "Where trials recruit is where competition for patients, investigators and sites is stiffest."
     sp.append(card("Countries with sites in active trials", f"Number of active trials with at least one registered site in the country (a multinational trial counts in each). "
                    f"{n_nosite} active trials list no sites yet.", hbars_paired([(c, v[0], v[1]) for c, v in top_c], "Parkinson's", "Alzheimer's", "s1", "s2"),
-                   legend([("s1", "Parkinson's"), ("s2", "Alzheimer's")]), table(["Country", "Parkinson's", "Alzheimer's"], [(c, v[0], v[1]) for c, v in top_c]), "wide"))
+                   legend([("s1", "Parkinson's"), ("s2", "Alzheimer's")]), table(["Country", "Parkinson's", "Alzheimer's"], [(c, v[0], v[1]) for c, v in top_c]), "wide", take, why))
 
     # ---- pipeline structure ----
     pipe = []
@@ -312,13 +343,21 @@ def build(s, act, today, group_en=GROUP_EN):
     mrows = [c for c in mcodes if (core.mech_primary == c).any()]
     phl = [l for l, _ in ph_groups]
     m = [[int(((core.mech_primary == c) & core.phase.astype(str).isin(ps)).sum()) for _, ps in ph_groups] for c in mrows]
+    cells = [(m[i][j], mrows[i], phl[j]) for i in range(len(mrows)) for j in range(len(phl)) if mrows[i] != "OTHER"]
+    hv, hc, hp = max(cells)
+    take = f"Most crowded spot: <b>{e(MECH_EN[hc])}</b> in {e(hp)} ({hv} active trials)"
+    why = "Crowded cells mean many similar bets reading out around the same time; empty cells show where nobody is testing yet."
     pipe.append(card("Pipeline: mechanism × phase", "Active trials, healthy-volunteer studies excluded. Darker = more trials.",
-                     heatmap([MECH_EN[c] for c in mrows], phl, m, "Mechanism"), "", "", "wide"))
+                     heatmap([MECH_EN[c] for c in mrows], phl, m, "Mechanism"), "", "", "wide", take, why))
     yrs = list(range(today.year - 10, today.year + 1))
     started = s[s.sy.isin(yrs) & ~s.hv_study]
     m2 = [[int(((started.mech_primary == c) & (started.sy == y)).sum()) for y in yrs] for c in mrows]
+    gr = [(sum(m2[i][7:10]) - sum(m2[i][4:7]), sum(m2[i][7:10]), sum(m2[i][4:7]), c) for i, c in enumerate(mrows) if c != "OTHER"]
+    gd, gn, go, gc = max(gr)
+    take = f"Fastest-growing: <b>{e(MECH_EN[gc])}</b>, {gn} trial starts in {yrs[7]}–{yrs[9]} vs {go} in {yrs[4]}–{yrs[6]}"
+    why = "Momentum shows where the field is heading years before late-stage results arrive."
     pipe.append(card("Trial starts by mechanism and year", f"In-scope trials by registered start year, {yrs[0]}–{yrs[-1]} ({yrs[-1]} includes planned starts later this year). "
-                     "Shows which mechanisms are gaining or losing activity.", heatmap([MECH_EN[c] for c in mrows], [str(y) for y in yrs], m2, "Mechanism"), "", "", "wide"))
+                     "Shows which mechanisms are gaining or losing activity.", heatmap([MECH_EN[c] for c in mrows], [str(y) for y in yrs], m2, "Mechanism"), "", "", "wide", take, why))
 
     # ---- design ----
     des = []
@@ -329,9 +368,11 @@ def build(s, act, today, group_en=GROUP_EN):
         ma, mb = median(a_), median(b_)
         med_rows.append((lab, int(ma or 0), int(mb or 0)))
         tbl.append((lab, int(ma or 0), f"{quart(a_, .25) or 0:.0f}–{quart(a_, .75) or 0:.0f}", len(a_), int(mb or 0), f"{quart(b_, .25) or 0:.0f}–{quart(b_, .75) or 0:.0f}", len(b_)))
+    take = f"A typical phase 2 enrolls <b>{med_rows[2][1]}</b> people in Parkinson's and <b>{med_rows[2][2]}</b> in Alzheimer's"
+    why = "A benchmark for sizing a trial. Small trials can only detect large effects, so a small phase 2 that 'fails' may not rule a drug out."
     des.append(card("Planned enrollment by phase (median)", "Active trials, healthy-volunteer studies excluded. Registered target or actual enrollment; the table gives the interquartile range.",
                     hbars_paired(med_rows, "Parkinson's", "Alzheimer's", "s1", "s2"), legend([("s1", "Parkinson's"), ("s2", "Alzheimer's")]),
-                    table(["Phase", "PD median", "PD IQR", "PD n", "AD median", "AD IQR", "AD n"], tbl)))
+                    table(["Phase", "PD median", "PD IQR", "PD n", "AD median", "AD IQR", "AD n"], tbl), "", take, why))
     from .generate import pdate
     def dur(r):
         a_, b_ = pdate(r.start), pdate(r.primary_completion)
@@ -343,9 +384,11 @@ def build(s, act, today, group_en=GROUP_EN):
         a_, b_ = durs[sel & is_pd(core)].dropna().tolist(), durs[sel & is_ad(core)].dropna().tolist()
         drows.append((lab, round(median(a_) or 0), round(median(b_) or 0)))
         dtbl.append((lab, round(median(a_) or 0), len(a_), round(median(b_) or 0), len(b_)))
+    take = f"Phase 2 trials plan <b>{drows[2][1]}</b> months (Parkinson's) and <b>{drows[2][2]}</b> months (Alzheimer's) from start to primary completion"
+    why = "A benchmark for timelines and funding runway; trials often run longer than registered."
     des.append(card("Planned time to primary completion (median months)", "From registered start to registered primary completion, active trials. Includes recruitment time.",
                     hbars_paired(drows, "Parkinson's", "Alzheimer's", "s1", "s2"), legend([("s1", "Parkinson's"), ("s2", "Alzheimer's")]),
-                    table(["Phase", "PD months", "PD n", "AD months", "AD n"], dtbl)))
+                    table(["Phase", "PD months", "PD n", "AD months", "AD n"], dtbl), "", take, why))
     by = list(range(today.year - 12, today.year + 1))
     adp, pdd, pds, nad, npd = [], [], [], [], []
     for y in by:
@@ -355,6 +398,13 @@ def build(s, act, today, group_en=GROUP_EN):
         adp.append(pct(ga.amyloid_req.map(lambda v: str(v) == "True").sum(), len(ga)) if len(ga) >= 5 else None)
         pdd.append(pct(gp.dat_req.map(lambda v: str(v) == "True").sum(), len(gp)) if len(gp) >= 5 else None)
         pds.append(pct(gp.saa_req.map(lambda v: str(v) == "True").sum(), len(gp)) if len(gp) >= 5 else None)
+    def pooled(years):
+        g = s[s.sy.isin(years) & ~s.hv_study]
+        g = g[is_ad(g)]
+        return (pct(g.amyloid_req.map(lambda v: str(v) == "True").sum(), len(g)), len(g))
+    rec_ad, old_ad = pooled(by[-3:]), pooled(by[:3])
+    take = f"Alzheimer's trials requiring amyloid confirmation: <b>{old_ad[0]:.0f}%</b> ({by[0]}–{by[2]} starts) → <b>{rec_ad[0]:.0f}%</b> ({by[-3]}–{by[-1]})"
+    why = "Biomarker-confirmed enrollment is becoming the norm: cleaner trial populations, but more screening cost and time per participant."
     ymax = nice_max(max([v for v in adp + pdd + pds if v is not None] + [10]))
     svg = lines([str(y) for y in by], [adp, pdd, pds], ["s1", "s2", "s3"], ["AD: amyloid biomarker required", "PD: abnormal DaT scan required", "PD: α-syn SAA required"],
                 ymax=min(ymax, 100), notes=[[f"n={n}" for n in nad], [f"n={n}" for n in npd], [f"n={n}" for n in npd]], width=1000)
@@ -362,7 +412,7 @@ def build(s, act, today, group_en=GROUP_EN):
                     "under-detects, so read the trend rather than the level). Years with fewer than 5 trials are not plotted.",
                     svg, legend([("s1", "AD: amyloid biomarker required"), ("s2", "PD: abnormal DaT scan required"), ("s3", "PD: α-syn SAA required")]),
                     table(["Start year", "AD trials", "AD amyloid %", "PD trials", "PD DaT %", "PD SAA %"],
-                          [(y, nad[i], "—" if adp[i] is None else round(adp[i]), npd[i], "—" if pdd[i] is None else round(pdd[i]), "—" if pds[i] is None else round(pds[i])) for i, y in enumerate(by)]), "wide"))
+                          [(y, nad[i], "—" if adp[i] is None else round(adp[i]), npd[i], "—" if pdd[i] is None else round(pdd[i]), "—" if pds[i] is None else round(pds[i])) for i, y in enumerate(by)]), "wide", take, why))
 
     # ---- execution & transparency ----
     exe = []
@@ -371,54 +421,67 @@ def build(s, act, today, group_en=GROUP_EN):
     for lab, g in [("Putative disease-modifying", ended[ended.group == "DMT"]), ("Symptomatic", ended[ended.group == "SYM"]), ("Unclassified", ended[ended.group == "UNK"]),
                    ("Industry sponsor", ended[ended.industry]), ("Academic / other sponsor", ended[~ended.industry])]:
         rows.append((lab, [int((g.status == "COMPLETED").sum()), int((g.status == "TERMINATED").sum()), int((g.status == "WITHDRAWN").sum())]))
+    tp = [P(v[1], sum(v)) for _, v in rows]
+    cmp_ = f"about the same as symptomatic trials ({tp[1]}%)" if abs(tp[0] - tp[1]) < 3 else f"vs {tp[1]}% of symptomatic trials"
+    take = f"<b>{tp[0]}%</b> of ended putative disease-modifying trials were stopped early, {cmp_}"
+    why = "A rough gauge of attrition. Trials stop for safety, efficacy, funding or slow enrollment; the reasons are not broken out here."
     exe.append(card("How trials ended", "In-scope trials started 2010 or later that have ended. Terminated = stopped early; withdrawn = stopped before enrolling. "
                     "Reasons (safety, efficacy, business, enrollment) are not shown here.",
                     stacked100(rows, ["Completed", "Terminated", "Withdrawn"], ["s0", "s2", "s1"]),
                     legend([("s0", "Completed"), ("s2", "Terminated"), ("s1", "Withdrawn")]),
-                    table(["Group", "Completed", "Terminated", "Withdrawn"], [(l, *v) for l, v in rows])))
+                    table(["Group", "Completed", "Terminated", "Withdrawn"], [(l, *v) for l, v in rows]), "", take, why))
     cutoff = dt.date(today.year - 1, today.month, 1)
     comp = s[(s.status == "COMPLETED") & s.pc_date.map(lambda d: d is not None and dt.date(2015, 1, 1) <= d < cutoff)]
     rows = []
-    for lab, g in [("Industry · phase 2–2/3", comp[comp.industry & comp.phase.astype(str).isin(["1/2", "2", "2/3"])]),
-                   ("Academic / other · phase 2–2/3", comp[~comp.industry & comp.phase.astype(str).isin(["1/2", "2", "2/3"])]),
+    for lab, g in [("Industry · phase 1/2–2/3", comp[comp.industry & comp.phase.astype(str).isin(["1/2", "2", "2/3"])]),
+                   ("Academic / other · phase 1/2–2/3", comp[~comp.industry & comp.phase.astype(str).isin(["1/2", "2", "2/3"])]),
                    ("Industry · phase 1", comp[comp.industry & comp.phase.astype(str).isin(["0/1 (초기 1상)", "1"])]),
                    ("Academic / other · phase 1", comp[~comp.industry & comp.phase.astype(str).isin(["0/1 (초기 1상)", "1"])])]:
         rows.append((lab, round(pct(g.has_results.astype(bool).sum(), len(g))), f"{int(g.has_results.astype(bool).sum())} of {len(g)}"))
+    take = f"Results are on the registry for <b>{rows[0][1]}%</b> of industry and <b>{rows[1][1]}%</b> of academic/other completed phase 1/2–2/3 trials"
+    why = "Where results are not posted, look for papers or press releases, and be cautious when outcomes are simply missing."
     exe.append(card("Results posted on ClinicalTrials.gov", f"Completed trials with primary completion from Jan 2015 to {cutoff:%b %Y} (at least a year ago). "
                     "Phase 1 and many non-US trials have no legal duty to post here, and results may be published elsewhere, so a gap is not evidence of non-reporting.",
-                    hbars_single(rows, unit="%", vmax=100), "", table(["Group", "% with results", "Count"], rows)))
+                    hbars_single(rows, unit="%", vmax=100), "", table(["Group", "% with results", "Count"], rows), "", take, why))
     stl = act[act.stale]
     rows = [("Industry", round(pct(stl.industry.sum(), act.industry.sum())), f"{int(stl.industry.sum())} of {int(act.industry.sum())}"),
             ("Academic / other", round(pct((~stl.industry).sum(), (~act.industry).sum())), f"{int((~stl.industry).sum())} of {int((~act.industry).sum())}")]
+    hi, lo = sorted(rows, key=lambda r: -r[1])
+    take = f"<b>{hi[1]}%</b> of {hi[0].lower()} vs <b>{lo[1]}%</b> of {lo[0].lower()} 'active' records are past their completion date"
+    why = "Trust registry dates less for sponsors that update rarely; check the sponsor's own announcements."
     exe.append(card("Active records past their completion date", "Share of active trials whose registered primary completion date has passed without a status update, by sponsor type.",
-                    hbars_single(rows, unit="%", vmax=100), "", table(["Sponsor type", "% past date", "Count"], rows)))
+                    hbars_single(rows, unit="%", vmax=100), "", table(["Sponsor type", "% past date", "Count"], rows), "", take, why))
 
-    # ---- key findings (computed) ----
-    dmt = core[core.group == "DMT"]
-    ph2 = core[core.phase.astype(str).isin(["2"])]
-    def pooled(years):
-        g = s[s.sy.isin(years) & ~s.hv_study]
-        g = g[is_ad(g)]
-        return (pct(g.amyloid_req.map(lambda v: str(v) == "True").sum(), len(g)), len(g))
-    rec_ad, old_ad = pooled(by[-3:]), pooled(by[:3])
-    allr = comp[comp.phase.astype(str).isin(["1/2", "2", "2/3"])]
-    us = cc.get("United States", [0, 0])
-    kf = [f"Industry is the lead sponsor of <b>{pct(dmt.industry.sum(), len(dmt)):.0f}%</b> of active putative disease-modifying trials "
-          f"(Parkinson's {pct(dmt[is_pd(dmt)].industry.sum(), len(dmt[is_pd(dmt)])):.0f}%, Alzheimer's {pct(dmt[is_ad(dmt)].industry.sum(), len(dmt[is_ad(dmt)])):.0f}%).",
-          f"Median planned enrollment of active phase 2 trials: <b>{int(median(ph2[is_pd(ph2)].enrollment.dropna().tolist()) or 0)}</b> (Parkinson's) and "
-          f"<b>{int(median(ph2[is_ad(ph2)].enrollment.dropna().tolist()) or 0)}</b> (Alzheimer's) participants.",
-          f"<b>{pct(allr.has_results.astype(bool).sum(), len(allr)):.0f}%</b> of completed phase 1/2–2/3 trials that reached primary completion in Jan 2015–{cutoff:%b %Y} have results posted on ClinicalTrials.gov.",
-          f"<b>{len(act[act.stale])}</b> of {len(act)} active records ({pct(len(act[act.stale]), len(act)):.0f}%) are past their registered primary completion date without a status update.",
-          f"The United States has sites in <b>{pct(sum(1 for r in core.itertuples() if isinstance(r.countries, str) and 'United States' in r.countries.split(';')), len(core)):.0f}%</b> of active trials."]
+    # ---- at a glance: finding → so what (all computed) ----
+    kf = [(f"Disease-modifying work is early: <b>{P(d_early, d_tot)}%</b> of active putative disease-modifying trials are in phase 1–1/2.",
+           "Late-stage readouts are scarce, so each one carries weight.", "landscape"),
+          (f"<b>{e(MECH_EN[gc])}</b> is the fastest-growing mechanism ({go} → {gn} trial starts, {yrs[4]}–{yrs[6]} vs {yrs[7]}–{yrs[9]}).",
+           "This is where the field is moving.", "pipeline"),
+          (f"<b>{sum(vals)}</b> trials reach primary completion in the next 12 months.",
+           "Expect a steady flow of results news; the completion calendar lists them.", "landscape"),
+          (f"Industry leads <b>{i1}%</b> of Parkinson's and <b>{i2}%</b> of Alzheimer's putative disease-modifying trials.",
+           "Who carries the financial risk differs by disease.", "sponsors"),
+          (f"A typical phase 2 enrolls <b>{med_rows[2][1]}</b> (Parkinson's) or <b>{med_rows[2][2]}</b> (Alzheimer's) people.",
+           "Small trials can only detect large effects; a negative small phase 2 is weak evidence.", "design")]
     if rec_ad[1] and old_ad[1]:
-        kf.append(f"Alzheimer's trials requiring an amyloid biomarker: <b>{rec_ad[0]:.0f}%</b> of {rec_ad[1]} trials starting {by[-3]}–{by[-1]} vs "
-                  f"{old_ad[0]:.0f}% of {old_ad[1]} starting {by[0]}–{by[2]} (automated text extraction under-detects; read as a trend).")
-    kf_html = "<section class='card wide kf'><h2>Key findings</h2><ul>" + "".join(f"<li>{x}</li>" for x in kf) + "</ul><p class='muted small'>Computed automatically from today's snapshot.</p></section>"
+        kf.append((f"Alzheimer's trials requiring amyloid confirmation rose from <b>{old_ad[0]:.0f}%</b> to <b>{rec_ad[0]:.0f}%</b> ({by[0]}–{by[2]} vs {by[-3]}–{by[-1]} starts).",
+                   "Biomarker screening is becoming standard in Alzheimer's trials.", "design"))
+    kf.append((f"<b>{nst}</b> of {len(act)} 'active' records ({P(nst, len(act))}%) are past their completion date without an update.",
+               "Check a trial's dates before relying on them.", "execution"))
+    kf_html = ("<section class='card wide kf'><h2>At a glance</h2><ul>"
+               + "".join(f"<li>{f} <span class='so'>→ {w} <a href='#{a}'>See chart</a></span></li>" for f, w, a in kf)
+               + "</ul><p class='muted small'>Every number on this page is computed from today's snapshot and changes as the registry changes.</p></section>")
+    intro = (f"<div class='intro'><div><b>What this is</b>Every Parkinson's and Alzheimer's drug trial (phase 1–2/3) on ClinicalTrials.gov: "
+             f"<b>{len(s):,}</b> trials, <b>{len(act):,}</b> active, re-read every day. Snapshot of {today:%B %d, %Y}.</div>"
+             "<div><b>Why it exists</b>The registry lists trials one at a time. It does not show where the field is crowded, who funds it, "
+             "or when results are due. This page does.</div>"
+             "<div><b>How to read it</b>Each chart's bold headline is its conclusion. Below it: why it matters, the chart, "
+             "exactly what is counted, and the data table. Hover a bar or cell for values.</div></div>")
 
-    body = (f"<h1>Dashboard</h1><p class='muted'>Parkinson's and Alzheimer's phase 1–2/3 drug trials on ClinicalTrials.gov, snapshot of {today:%B %d, %Y}. "
-            "Hover or focus a bar or cell for its values; every chart has a data table. Jump to: <a href='#landscape'>Landscape</a> · <a href='#pipeline'>Pipeline</a> · "
-            "<a href='#sponsors'>Sponsors &amp; geography</a> · <a href='#design'>Trial design</a> · <a href='#execution'>Execution &amp; transparency</a></p>"
+    body = (f"<h1>Dashboard</h1>{intro}"
             f"<div class='cards'>{kf_html}</div>"
+            "<p class='muted jump'>Jump to: <a href='#landscape'>Landscape</a> · <a href='#pipeline'>Pipeline</a> · "
+            "<a href='#sponsors'>Sponsors &amp; geography</a> · <a href='#design'>Trial design</a> · <a href='#execution'>Execution &amp; transparency</a></p>"
             + f"<div id='landscape'>{section('Landscape', 'What is active now, and how the field has grown.', cards)}</div>"
             + f"<div id='pipeline'>{section('Pipeline', 'Where activity sits by mechanism and phase, and how it is shifting.', pipe)}</div>"
             + f"<div id='sponsors'>{section('Sponsors & geography', 'Who runs the trials and where.', sp)}</div>"
