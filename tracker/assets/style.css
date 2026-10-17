@@ -83,13 +83,22 @@ padding:6px 10px;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.12);max-width:2
 table.heat{font-size:12px}table.heat td,table.heat th{padding:4px 6px;text-align:center;border-bottom:1px solid var(--line)}
 table.heat th.rl{text-align:right;font-weight:500;white-space:nowrap}td.hm{font-variant-numeric:tabular-nums;outline:none}td.hm:focus{box-shadow:inset 0 0 0 2px var(--ink)}
 h2.sec{font-size:22px;margin:36px 0 2px}.kf ul{margin:6px 0 0;padding-left:20px}.kf li{margin:4px 0}
-.intro{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0 4px}
-.intro>div{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--s1);border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.5}
-.intro>div>b:first-child{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px}
-.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px}
-.card h2{line-height:1.35}
-.why{margin:6px 0 10px;padding:6px 10px;border-left:3px solid var(--s1);background:color-mix(in srgb,var(--s1) 8%,transparent);border-radius:0 6px 6px 0;font-size:14px}
-.how{margin:10px 0 4px}
-.kf li{margin:8px 0;line-height:1.5}.kf .so{display:block;color:var(--muted);font-size:14px}
-.jump{margin:4px 0 0}
-@media (max-width:720px){.intro{grid-template-columns:1fr}}
+.lede{font-size:17px;line-height:1.55;margin:4px 0 16px;max-width:72ch}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 18px}
+.kpi{display:flex;flex-direction:column;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;color:var(--ink);text-decoration:none}
+.kpi:hover{border-color:var(--accent)}
+.kpi .v{font-size:30px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.kpi .l{font-size:14px;line-height:1.4}
+.kpi .so{font-size:13px;color:var(--muted);margin-top:auto;padding-top:6px}
+.jump{position:sticky;top:0;z-index:5;display:flex;gap:6px 18px;flex-wrap:wrap;padding:10px 0;background:var(--bg);border-bottom:1px solid var(--line);font-size:15px}
+.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+.card h2{font-size:19px;line-height:1.35;margin:0 0 6px;font-weight:650}
+.card h2 b{font-weight:800}
+.why{margin:0 0 12px;color:var(--muted);font-size:15px;line-height:1.5;max-width:80ch}
+.card{padding:18px 20px}
+.cards{gap:20px}
+details.tbl summary{font-size:14px}
+h2.sec{border-top:2px solid var(--line);padding-top:24px;margin-top:44px}
+#landscape,#pipeline,#sponsors,#design,#execution{scroll-margin-top:52px}
+@media (max-width:900px){.kpis{grid-template-columns:1fr 1fr}}
+@media (max-width:720px){.cards{grid-template-columns:1fr}.kpi .v{font-size:26px}.card h2{font-size:17px}.card{padding:14px}}
