@@ -1,4 +1,4 @@
-# NeuroTrials Watch daily rebuild: fetch ClinicalTrials.gov, classify, log changes, regenerate the site, deploy to GitHub Pages.
+# NeuroTrials Watch (+ Autoimmune CAR-T Watch at /autoimmune) daily rebuild: fetch ClinicalTrials.gov, classify, log changes, regenerate the site, deploy to GitHub Pages.
 name: NeuroTrials Watch daily update
 on:
   schedule:
@@ -26,6 +26,9 @@ jobs:
       - run: pip install "pandas>=2.2"
       - name: Fetch, classify, log changes
         run: python -m tracker.update data raw
+      - name: Autoimmune CAR-T Watch data (/autoimmune)
+        continue-on-error: true
+        run: python -m cartwatch.update data/cart raw_cart
       - name: Commit data
         run: |
           git config user.name "neurotrials-bot"
@@ -40,6 +43,14 @@ jobs:
           SITE_URL: ${{ vars.SITE_URL || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}
           REPO_URL: https://github.com/${{ github.repository }}
         run: python -m tracker.generate data site
+      - name: Build Autoimmune CAR-T Watch (/autoimmune)
+        continue-on-error: true
+        env:
+          SITE_URL: ${{ vars.SITE_URL || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}/autoimmune
+          REPO_URL: https://github.com/${{ github.repository }}
+        run: |
+          python -m cartwatch.generate data/cart site/autoimmune
+          echo "Sitemap: $SITE_URL/sitemap.xml" >> site/robots.txt
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

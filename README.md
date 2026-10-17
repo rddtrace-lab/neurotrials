@@ -31,3 +31,7 @@ Please report misclassifications through Issues.
 ## Data and license
 Source data: ClinicalTrials.gov (U.S. National Library of Medicine). Code: MIT License. Derived tables may be reused with attribution.
 Not medical advice.
+
+## Also hosted here: Autoimmune CAR-T Watch
+A daily tracker of CAR-T, CAR-NK and T-cell engager trials in autoimmune disease, served at `/autoimmune/`.
+Code: `cartwatch/` (fetch, published labelling rules, change log, site generator). Data: `data/cart/`. Built by the same workflow.
