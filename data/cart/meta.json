@@ -1,9 +1,9 @@
 {
- "snapshot_date": "2026-10-18",
+ "snapshot_date": "2026-10-19",
  "tracking_started": "2026-10-17",
  "base_rules": "1.1",
  "rules": "1.1",
  "n_trials": 383,
  "n_active": 315,
- "snapshot_md5": "53aade8952e0bb2d314b12678e8ee0ab"
+ "snapshot_md5": "4d82623da9ca640c169c7aec8ebb9c83"
 }

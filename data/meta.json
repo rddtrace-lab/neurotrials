@@ -1,9 +1,9 @@
 {
- "snapshot_date": "2026-10-18",
+ "snapshot_date": "2026-10-19",
  "base_rules": "moduleA v2.8",
  "n_trials": 2190,
  "n_in_scope": 1723,
  "n_active_in_scope": 291,
- "snapshot_md5": "1d008adc806fd46bc9937106d7b7da47",
+ "snapshot_md5": "31d9886e580127fe07019df1fc086bb3",
  "rules": "moduleA v2.8"
 }
